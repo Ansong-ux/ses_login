@@ -50,7 +50,7 @@ The system includes the following tables:
    \`\`\`
    DATABASE_URL=your_neon_database_url
    JWT_SECRET=your_jwt_secret_key
-   NEXT_PUBLIC_BASE_URL=http://localhost:3000
+   NEXT_PUBLIC_BASE_URL=http://localhost:3001
    \`\`\`
 
 4. **Set up the database**
@@ -66,7 +66,7 @@ The system includes the following tables:
    \`\`\`
 
 6. **Access the application**
-   Open [http://localhost:3000](http://localhost:3000)
+   Open [http://localhost:3001](http://localhost:3001)
 
 ## Demo Credentials
 
