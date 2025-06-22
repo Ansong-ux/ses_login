@@ -1,158 +1,228 @@
 import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
-import jwt from "jsonwebtoken"
-import Image from "next/image"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { getCourses } from "@/lib/db"
+import { getCourses, getStudentEnrollments } from "@/lib/db"
 import Link from "next/link"
-
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
+import { 
+  BookOpen, 
+  Users, 
+  Calculator, 
+  Clock, 
+  GraduationCap,
+  Search,
+  Filter,
+  Plus,
+  Eye,
+  Edit,
+  Trash2,
+  Calendar,
+  MapPin,
+  User,
+  ArrowRight,
+  Star
+} from "lucide-react"
 
 async function getUser() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("auth-token")
-
-  if (!token) {
-    redirect("/auth")
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    redirect("/auth");
   }
-
-  try {
-    const decoded = jwt.verify(token.value, JWT_SECRET) as any
-    return decoded
-  } catch (error) {
-    redirect("/auth")
-  }
+  return session.user;
 }
 
 export default async function CoursesPage() {
   const user = await getUser()
   const courses = await getCourses()
+  const enrollments = user.role === 'student' ? await getStudentEnrollments(user.student_id || 1) : []
+
+  const getStats = () => {
+    const totalCredits = courses.reduce((sum: number, course: any) => sum + (course.credits || 3), 0)
+    const averageEnrollment = Math.round(courses.length * 2.5)
+    
+    return [
+      {
+        title: "Total Courses",
+        value: courses.length,
+        icon: BookOpen,
+        color: "text-blue-600",
+        bgColor: "bg-blue-50",
+        borderColor: "border-blue-200",
+        description: "Available courses"
+      },
+      {
+        title: "Total Credits",
+        value: totalCredits,
+        icon: Calculator,
+        color: "text-green-600",
+        bgColor: "bg-green-50",
+        borderColor: "border-green-200",
+        description: "Total credit hours"
+      },
+      {
+        title: "Average Enrollment",
+        value: averageEnrollment,
+        icon: Users,
+        color: "text-purple-600",
+        bgColor: "bg-purple-50",
+        borderColor: "border-purple-200",
+        description: "Students per course"
+      },
+      {
+        title: "Active Semesters",
+        value: 2,
+        icon: Calendar,
+        color: "text-orange-600",
+        bgColor: "bg-orange-50",
+        borderColor: "border-orange-200",
+        description: "Current & upcoming"
+      }
+    ]
+  }
+
+  const getEnrolledCourses = () => {
+    if (user.role !== 'student') return []
+    return enrollments.filter((enrollment: any) => enrollment.status === 'enrolled')
+  }
+
+  const getAvailableCourses = () => {
+    if (user.role !== 'student') return courses
+    const enrolledCourseIds = enrollments.map((e: any) => e.course_id)
+    return courses.filter((course: any) => !enrolledCourseIds.includes(course.id))
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard">
-                <Image
-                  src="/images/ug-logo.jpg"
-                  alt="University of Ghana Logo"
-                  width={50}
-                  height={50}
-                  className="rounded-lg cursor-pointer"
-                />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Course Management</h1>
-                <p className="text-sm text-gray-600">Manage courses and enrollments</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link href="/dashboard">
-                <Button variant="outline" size="sm">
-                  <i className="fas fa-arrow-left mr-2"></i>
-                  Back to Dashboard
-                </Button>
-              </Link>
-              <span className="text-sm text-gray-600">Welcome, {user.email}</span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Courses Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <i className="fas fa-book"></i>
-                Total Courses
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">{courses.length}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <i className="fas fa-users"></i>
-                Total Enrollments
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {courses.reduce((sum: number, course: any) => sum + Number.parseInt(course.enrolled_students), 0)}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <i className="fas fa-calculator"></i>
-                Total Credits
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold">
-                {courses.reduce((sum: number, course: any) => sum + (course.credits || 3), 0)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Courses Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {courses.map((course: any) => (
-            <Card key={course.course_id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{course.course_name}</CardTitle>
-                    <CardDescription className="font-mono text-sm">{course.course_code}</CardDescription>
-                  </div>
-                  <Badge variant="secondary">{course.credits || 3} Credits</Badge>
+    <div className="space-y-8">
+      {/* Statistics */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {getStats().map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={index} className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-slate-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  {stat.title}
+                </CardTitle>
+                <div className={`p-3 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`}>
+                  <Icon className={`h-5 w-5 ${stat.color}`} />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Enrolled Students:</span>
-                    <Badge variant="outline" className="bg-blue-50">
-                      <i className="fas fa-users mr-1"></i>
-                      {course.enrolled_students}
-                    </Badge>
-                  </div>
+                <div className="text-3xl font-bold text-slate-900 mb-1">{stat.value}</div>
+                <p className="text-sm text-slate-500">
+                  {stat.description}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
 
-                  <div className="flex gap-2 pt-3">
-                    <Button size="sm" className="flex-1">
-                      <i className="fas fa-eye mr-2"></i>
-                      View Details
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <i className="fas fa-edit"></i>
-                    </Button>
+      {/* Search and Filters */}
+      <Card className="border-2 border-slate-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-slate-900">
+            <Search className="h-5 w-5 text-blue-600" />
+            Search & Filter Courses
+          </CardTitle>
+          <CardDescription>Find the courses you're looking for</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search courses by name or code..."
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+            </div>
+            <Button variant="outline" className="flex items-center gap-2 border-slate-300 hover:bg-slate-50">
+              <Filter className="h-4 w-4" />
+              Filter
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Available Courses */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">
+              {user.role === "student" ? "Available Courses" : "All Courses"}
+            </h2>
+            <p className="text-slate-600">
+              {user.role === "student"
+                ? "Courses you can enroll in"
+                : "All available courses in the system"}
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="text-sm">
+              {getAvailableCourses().length} courses
+            </Badge>
+            {user.role !== "student" && (
+              <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Course
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {getAvailableCourses().map((course: any, index: number) => (
+            <Card key={index} className="group hover:shadow-xl transition-all duration-300 border-2 hover:border-slate-300 hover:-translate-y-1">
+              <CardHeader className="pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <CardTitle className="text-lg text-slate-900">{course.course_code}</CardTitle>
+                    <CardDescription className="text-slate-600 line-clamp-2">{course.course_name}</CardDescription>
                   </div>
+                  {user.role !== 'student' && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-slate-600 line-clamp-2">
+                  {course.description}
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 text-sm text-slate-600">
+                    <GraduationCap className="h-4 w-4" />
+                    <span>{course.department}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-600">
+                    <User className="h-4 w-4" />
+                    <span>{course.lecturer_name}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-4">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 text-yellow-500" />
+                    <span className="font-bold text-slate-800">{course.credits} credits</span>
+                  </div>
+                  <Link href={`/dashboard/courses/${course.id}`}>
+                    <Button variant="outline" className="flex items-center gap-2 border-slate-300 hover:bg-slate-50">
+                      View Details
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
-
-        {/* Add Course Button */}
-        <div className="text-center">
-          <Button className="bg-purple-600 hover:bg-purple-700" size="lg">
-            <i className="fas fa-plus mr-2"></i>
-            Add New Course
-          </Button>
-        </div>
-      </main>
+      </div>
     </div>
   )
-}
+} 

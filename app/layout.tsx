@@ -6,7 +6,10 @@ import "../styles/globals.css"
 export const metadata: Metadata = {
   title: "UG Computer Engineering Department",
   description: "University of Ghana Computer Engineering Department Management System",
-    generator: 'v0.dev'
+    generator: 'v0.dev',
+    icons: {
+        icon: '/images/seslogo.jpg',
+    }
 }
 
 export default function RootLayout({

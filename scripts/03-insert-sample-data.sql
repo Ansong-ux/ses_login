@@ -1,12 +1,12 @@
 -- Insert sample students
-INSERT INTO students (first_name, last_name, email, phone) VALUES 
-('Simpson', 'Mozu', 'simpson.mozu@gmail.com', '1234567890'),
-('Elvis', 'Tiburu', 'tiburu.elvis@gmail.com', '2345678901'),
-('Thomas', 'Sasu', 'thomas.sasu@gmail.com', '3456789012'),
-('Taylor', 'Kwamena', 'taylor.kwamena@gmail.com', '4567890123'),
-('Grace', 'Asante', 'grace.asante@gmail.com', '5678901234'),
-('Michael', 'Osei', 'michael.osei@gmail.com', '6789012345')
-ON CONFLICT (email) DO NOTHING;
+INSERT INTO students (first_name, last_name, email, phone, level) VALUES 
+('Simpson', 'Mozu', 'simpson.mozu@gmail.com', '1234567890', 100),
+('Elvis', 'Tiburu', 'elvis.tiburu@gmail.com', '2345678901', 200),
+('Thomas', 'Sasu', 'thomas.sasu@gmail.com', '3456789012', 300),
+('Taylor', 'Kwamena', 'taylor.kwamena@gmail.com', '4567890123', 400),
+('Grace', 'Asante', 'grace.asante@gmail.com', '5678901234', 100),
+('Michael', 'Osei', 'michael.osei@gmail.com', '6789012345', 200)
+ON CONFLICT (email) DO UPDATE SET level = EXCLUDED.level;
 
 -- Insert sample fees (assuming total fees per student is 1000.00)
 INSERT INTO fees (student_id, amount_paid, payment_date) VALUES 
@@ -62,11 +62,19 @@ INSERT INTO lecturer_ta (lecturer_id, ta_id, course_id, semester, year) VALUES
 (4, 3, 5, 'Fall', 2024)
 ON CONFLICT DO NOTHING;
 
--- Insert sample users for authentication (with properly hashed passwords)
--- Password for all demo accounts is "password123"
-INSERT INTO users (email, password_hash, role, student_id) VALUES 
-('simpson.mozu@gmail.com', '$2b$10$rOzJqQXGNQVQqQVQqQVQqOzJqQXGNQVQqQVQqQVQqOzJqQXGNQVQqO', 'student', 1),
-('elvis.tiburu@gmail.com', '$2b$10$rOzJqQXGNQVQqQVQqQVQqOzJqQXGNQVQqQVQqQVQqOzJqQXGNQVQqO', 'student', 2),
-('thomas.sasu@gmail.com', '$2b$10$rOzJqQXGNQVQqQVQqQVQqOzJqQXGNQVQqQVQqQVQqOzJqQXGNQVQqO', 'student', 3),
-('admin@university.edu', '$2b$10$rOzJqQXGNQVQqQVQqQVQqOzJqQXGNQVQqQVQqQVQqOzJqQXGNQVQqO', 'admin', NULL)
-ON CONFLICT (email) DO NOTHING;
+-- Insert sample users for authentication
+-- The password for all accounts is "password123"
+INSERT INTO users (email, password_hash, role, student_id, lecturer_id) VALUES 
+('simpson.mozu@gmail.com', '$2b$10$JCF.S6I5M.90i3p/5aJdDuD1N2sT8r21yHJS2.t.6fS4V.J.m/j9y', 'student', 1, NULL),
+('elvis.tiburu@gmail.com', '$2b$10$JCF.S6I5M.90i3p/5aJdDuD1N2sT8r21yHJS2.t.6fS4V.J.m/j9y', 'student', 2, NULL),
+('thomas.sasu@gmail.com', '$2b$10$JCF.S6I5M.90i3p/5aJdDuD1N2sT8r21yHJS2.t.6fS4V.J.m/j9y', 'student', 3, NULL),
+('john.nii@university.edu', '$2b$10$JCF.S6I5M.90i3p/5aJdDuD1N2sT8r21yHJS2.t.6fS4V.J.m/j9y', 'lecturer', NULL, 1),
+('mary.tiburu@university.edu', '$2b$10$JCF.S6I5M.90i3p/5aJdDuD1N2sT8r21yHJS2.t.6fS4V.J.m/j9y', 'lecturer', NULL, 2),
+('samuel.akua@university.edu', '$2b$10$JCF.S6I5M.90i3p/5aJdDuD1N2sT8r21yHJS2.t.6fS4V.J.m/j9y', 'lecturer', NULL, 3),
+('sarah.mensah@university.edu', '$2b$10$JCF.S6I5M.90i3p/5aJdDuD1N2sT8r21yHJS2.t.6fS4V.J.m/j9y', 'lecturer', NULL, 4),
+('admin@university.edu', '$2b$10$JCF.S6I5M.90i3p/5aJdDuD1N2sT8r21yHJS2.t.6fS4V.J.m/j9y', 'admin', NULL, NULL)
+ON CONFLICT (email) DO UPDATE SET 
+    password_hash = EXCLUDED.password_hash,
+    role = EXCLUDED.role, 
+    student_id = EXCLUDED.student_id,
+    lecturer_id = EXCLUDED.lecturer_id;

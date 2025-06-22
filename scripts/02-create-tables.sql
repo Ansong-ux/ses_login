@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS students (
     last_name VARCHAR(50) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     phone VARCHAR(20),
+    level INT NOT NULL DEFAULT 100,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -71,9 +72,9 @@ CREATE TABLE IF NOT EXISTS users (
     user_id SERIAL PRIMARY KEY,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(20) DEFAULT 'student',
-    student_id INT REFERENCES students(student_id),
-    lecturer_id INT REFERENCES lecturers(lecturer_id),
+    role VARCHAR(20) DEFAULT 'student' NOT NULL,
+    student_id INT UNIQUE REFERENCES students(student_id) ON DELETE SET NULL,
+    lecturer_id INT UNIQUE REFERENCES lecturers(lecturer_id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -1,230 +1,309 @@
-import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
-import jwt from "jsonwebtoken"
-import Image from "next/image"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { getOutstandingFees, getStudents } from "@/lib/db"
-import Link from "next/link"
-
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key"
+import { redirect } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  getOutstandingFees,
+  getFeeStructure,
+  getPaymentHistory,
+} from "@/lib/db";
+import Link from "next/link";
+import {
+  DollarSign,
+  CreditCard,
+  TrendingUp,
+  AlertCircle,
+  Calendar,
+  Download,
+  Plus,
+  Eye,
+  CheckCircle,
+  Clock,
+  XCircle,
+  ArrowRight,
+  BarChart3,
+  Receipt,
+  Wallet,
+  Target,
+} from "lucide-react";
 
 async function getUser() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("auth-token")
-
-  if (!token) {
-    redirect("/auth")
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    redirect("/auth");
   }
-
-  try {
-    const decoded = jwt.verify(token.value, JWT_SECRET) as any
-    return decoded
-  } catch (error) {
-    redirect("/auth")
-  }
+  return session.user;
 }
 
 export default async function FeesPage() {
-  const user = await getUser()
-  const [outstandingFees, students] = await Promise.all([getOutstandingFees(), getStudents()])
+  const user = await getUser();
+  const outstandingFees = await getOutstandingFees();
+  const feeStructure = await getFeeStructure();
+  const paymentHistory = await getPaymentHistory();
 
-  const totalOutstanding = Array.isArray(outstandingFees)
-    ? outstandingFees.reduce((sum: number, student: any) => sum + Number.parseFloat(student.outstanding || 0), 0)
-    : 0
+  const getStats = () => {
+    const totalOutstanding = outstandingFees.reduce(
+      (sum: number, fee: any) => sum + (fee.amount || 0),
+      0
+    );
+    const totalPaid = paymentHistory.reduce(
+      (sum: number, payment: any) => sum + (payment.amount || 0),
+      0
+    );
+    const overdueCount = outstandingFees.filter(
+      (fee: any) => fee.is_overdue
+    ).length;
 
-  const totalPaid = Array.isArray(outstandingFees)
-    ? outstandingFees.reduce((sum: number, student: any) => sum + Number.parseFloat(student.total_paid || 0), 0)
-    : 0
+    return [
+      {
+        title: "Total Outstanding",
+        value: `$${totalOutstanding.toLocaleString()}`,
+        icon: AlertCircle,
+        color: "text-red-600",
+        bgColor: "bg-red-50",
+        borderColor: "border-red-200",
+        description: "Amount due",
+      },
+      {
+        title: "Total Paid",
+        value: `$${totalPaid.toLocaleString()}`,
+        icon: CheckCircle,
+        color: "text-green-600",
+        bgColor: "bg-green-50",
+        borderColor: "border-green-200",
+        description: "This semester",
+      },
+      {
+        title: "Overdue Fees",
+        value: overdueCount,
+        icon: Clock,
+        color: "text-orange-600",
+        bgColor: "bg-orange-50",
+        borderColor: "border-orange-200",
+        description: "Requires attention",
+      },
+      {
+        title: "Payment Rate",
+        value: `${Math.round(
+          (totalPaid / (totalPaid + totalOutstanding)) * 100
+        )}%`,
+        icon: TrendingUp,
+        color: "text-blue-600",
+        bgColor: "bg-blue-50",
+        borderColor: "border-blue-200",
+        description: "Completion rate",
+      },
+    ];
+  };
+
+  const getPaymentMethods = () => {
+    return [
+      { name: "Credit Card", percentage: 45, color: "bg-blue-500" },
+      { name: "Bank Transfer", percentage: 30, color: "bg-green-500" },
+      { name: "Cash", percentage: 15, color: "bg-purple-500" },
+      { name: "Mobile Money", percentage: 10, color: "bg-orange-500" },
+    ];
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard">
-                <Image
-                  src="/images/ug-logo.jpg"
-                  alt="University of Ghana Logo"
-                  width={50}
-                  height={50}
-                  className="rounded-lg cursor-pointer"
-                />
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Fee Management</h1>
-                <p className="text-sm text-gray-600">Track and manage student fee payments</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link href="/dashboard">
-                <Button variant="outline" size="sm">
-                  <i className="fas fa-arrow-left mr-2"></i>
-                  Back to Dashboard
-                </Button>
-              </Link>
-              <span className="text-sm text-gray-600">Welcome, {user.email}</span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Fee Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <i className="fas fa-money-bill-wave"></i>
-                Total Collected
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">₵{totalPaid.toFixed(2)}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <i className="fas fa-exclamation-triangle"></i>
-                Outstanding
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">₵{totalOutstanding.toFixed(2)}</div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <i className="fas fa-check-circle"></i>
-                Fully Paid
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {Array.isArray(outstandingFees)
-                  ? outstandingFees.filter((s: any) => Number.parseFloat(s.outstanding || 0) <= 0).length
-                  : 0}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <i className="fas fa-clock"></i>
-                Pending
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {Array.isArray(outstandingFees)
-                  ? outstandingFees.filter((s: any) => Number.parseFloat(s.outstanding || 0) > 0).length
-                  : 0}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Fee Details Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <i className="fas fa-table"></i>
-                  Student Fee Status
+    <div className="space-y-8">
+      {/* Statistics */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {getStats().map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card
+              key={index}
+              className="group hover:shadow-lg transition-all duration-300 border-2 hover:border-slate-300"
+            >
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  {stat.title}
                 </CardTitle>
-                <CardDescription>Detailed breakdown of all student fee payments</CardDescription>
+                <div
+                  className={`p-3 rounded-xl ${stat.bgColor} group-hover:scale-110 transition-transform duration-300`}
+                >
+                  <Icon className={`h-5 w-5 ${stat.color}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-slate-900 mb-1">
+                  {stat.value}
+                </div>
+                <p className="text-sm text-slate-500">{stat.description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Fee Structure */}
+      <Card className="border-2 border-slate-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-slate-900">
+            <Receipt className="h-5 w-5 text-blue-600" />
+            Fee Structure
+          </CardTitle>
+          <CardDescription>
+            Current fee structure by academic level
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {feeStructure.map((fee: any, index: number) => (
+              <div
+                key={index}
+                className="p-6 border-2 border-slate-200 rounded-xl hover:border-slate-300 transition-colors group"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors">
+                    <Target className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="border-blue-200 text-blue-700 bg-blue-50"
+                  >
+                    Level {fee.level}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-2xl font-bold text-slate-900">
+                    ${fee.amount.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-slate-600">Per semester</p>
+                  <p className="text-xs text-slate-500">
+                    Academic year 2024/2025
+                  </p>
+                </div>
               </div>
-              <Button className="bg-purple-600 hover:bg-purple-700">
-                <i className="fas fa-plus mr-2"></i>
-                Record Payment
-              </Button>
-            </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Payment Analytics */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Payment Methods */}
+        <Card className="border-2 border-slate-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <CreditCard className="h-5 w-5 text-green-600" />
+              Payment Methods
+            </CardTitle>
+            <CardDescription>
+              Distribution of payment methods used
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full table-auto">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-semibold">Student</th>
-                    <th className="text-left py-3 px-4 font-semibold">Email</th>
-                    <th className="text-left py-3 px-4 font-semibold">Total Fees</th>
-                    <th className="text-left py-3 px-4 font-semibold">Amount Paid</th>
-                    <th className="text-left py-3 px-4 font-semibold">Outstanding</th>
-                    <th className="text-left py-3 px-4 font-semibold">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Array.isArray(outstandingFees) &&
-                    outstandingFees.map((student: any) => {
-                      const outstanding = Number.parseFloat(student.outstanding || 0)
-                      const totalPaid = Number.parseFloat(student.total_paid || 0)
-                      const totalFees = 1000.0 // Assuming total fees is 1000
-
-                      return (
-                        <tr key={student.student_id} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                                <i className="fas fa-user text-purple-600 text-sm"></i>
-                              </div>
-                              {student.full_name}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">{student.email}</td>
-                          <td className="py-3 px-4">
-                            <span className="font-semibold">₵{totalFees.toFixed(2)}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className="font-semibold text-green-600">₵{totalPaid.toFixed(2)}</span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`font-semibold ${outstanding > 0 ? "text-red-600" : "text-green-600"}`}>
-                              ₵{outstanding.toFixed(2)}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge
-                              variant={
-                                outstanding <= 0 ? "default" : outstanding < totalFees ? "secondary" : "destructive"
-                              }
-                              className={
-                                outstanding <= 0 ? "bg-green-500" : outstanding < totalFees ? "bg-yellow-500" : ""
-                              }
-                            >
-                              {outstanding <= 0 ? "Fully Paid" : outstanding < totalFees ? "Partial" : "Unpaid"}
-                            </Badge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline">
-                                <i className="fas fa-receipt"></i>
-                              </Button>
-                              <Button size="sm" variant="outline" className="text-green-600 hover:text-green-700">
-                                <i className="fas fa-plus"></i>
-                              </Button>
-                              <Button size="sm" variant="outline">
-                                <i className="fas fa-history"></i>
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                </tbody>
-              </table>
+            <div className="space-y-4">
+              {getPaymentMethods().map((method, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-900">
+                      {method.name}
+                    </span>
+                    <span className="text-sm text-slate-600">
+                      {method.percentage}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${method.color} transition-all duration-500`}
+                      style={{ width: `${method.percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>
-      </main>
+
+        {/* Recent Transactions */}
+        <Card className="border-2 border-slate-200">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-slate-900">
+                  <Wallet className="h-5 w-5 text-purple-600" />
+                  Payment History
+                </CardTitle>
+                <CardDescription>
+                  Most recent fee payments from students
+                </CardDescription>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="border-slate-300 hover:bg-slate-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Report
+                </Button>
+                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Record Payment
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {paymentHistory.slice(0, 5).map((payment: any) => (
+                <div
+                  key={payment.payment_id}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-4">
+                    <div
+                      className={`p-3 rounded-full ${
+                        payment.status === "Completed"
+                          ? "bg-green-100"
+                          : "bg-yellow-100"
+                      }`}
+                    >
+                      {payment.status === "Completed" ? (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <Clock className="h-5 w-5 text-yellow-600" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-slate-900">
+                        {payment.student_name}
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        {payment.payment_method} - ID: {payment.transaction_id}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={`font-semibold ${
+                        payment.status === "Completed"
+                          ? "text-green-600"
+                          : "text-yellow-600"
+                      }`}
+                    >
+                      ${payment.amount.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {new Date(payment.payment_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  )
-}
+  );
+} 
